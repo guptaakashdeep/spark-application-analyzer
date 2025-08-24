@@ -1,0 +1,76 @@
+# T-Shirt Sizing Configuration for Spark Application Analyzer
+# Copy this file to config.yaml and customize for your environment
+
+tshirt_profiles:
+  # XSMALL - Small workloads, development/testing
+  XSMALL:
+    max_memory_gb: 4
+    max_cores: 2
+    description: "Small workloads, development/testing"
+    
+  # SMALL - Light production workloads
+  SMALL:
+    max_memory_gb: 8
+    max_cores: 4
+    description: "Light production workloads"
+    
+  # MEDIUM - Standard production workloads
+  MEDIUM:
+    max_memory_gb: 16
+    max_cores: 8
+    description: "Standard production workloads"
+    
+  # LARGE - Heavy production workloads
+  LARGE:
+    max_memory_gb: 32
+    max_cores: 16
+    description: "Heavy production workloads"
+    
+  # XLARGE - Very heavy workloads, data science
+  XLARGE:
+    max_memory_gb: 64
+    max_cores: 32
+    description: "Very heavy workloads, data science"
+
+# Buffer configuration for right-sizing
+buffer_config:
+  # Buffer percentages based on execution count
+  conservative_buffer: 0.30  # 30% for < 8 executions
+  aggressive_buffer: 0.15    # 15% for >= 8 executions
+  
+  # Threshold for execution count
+  execution_threshold: 8
+  
+  # Minimum buffer percentage
+  min_buffer: 0.10
+  
+  # Maximum buffer percentage
+  max_buffer: 0.40
+
+# Analysis configuration
+analysis_config:
+  # Percentiles to calculate
+  percentiles: [50, 90, 95]
+  
+  # Warning threshold for p50-p90 gap (percentage)
+  percentile_gap_warning_threshold: 0.20  # 20%
+  
+  # Lookback period in days for historical analysis
+  lookback_days: 30
+  
+  # Minimum number of executions for reliable analysis
+  min_executions: 3
+
+# Output configuration
+output_config:
+  # Default output directory
+  default_output_dir: "./output"
+  
+  # File formats to generate
+  formats: ["json", "parquet"]
+  
+  # Include detailed metrics in output
+  include_detailed_metrics: true
+  
+  # Include percentile analysis in output
+  include_percentile_analysis: true
