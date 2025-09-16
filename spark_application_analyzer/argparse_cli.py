@@ -37,11 +37,11 @@ def main():
         "--action",
         type=str,
         default="list-apps",
-        choices=["list-apps", "get-metrics"],
+        choices=["list-apps", "get-recommendation"],
         help="CLI Action",
     )
     parser.add_argument(
-        "--app-id", type=str, help="Spark Application ID (for get-metrics)"
+        "--app-id", type=str, help="Spark Application ID (for get-recommendation)"
     )
 
     args = parser.parse_args()
@@ -67,13 +67,50 @@ def main():
             print(
                 f"App ID: {app['id']}, Name: {app['name']}, Started: {app['attempts'][0]['startTime']}"
             )
-    elif args.action == "get-metrics":
+    elif args.action == "get-recommendation":
         if not args.app_id:
-            print("Error: --app-id required for get-metrics", file=sys.stderr)
+            print("Error: --app-id required for get-recommendation", file=sys.stderr)
             sys.exit(1)
-        metrics = client.get_executor_metrics(args.app_id)
-        for m in metrics:
-            print(m)
+        # TODO: maybe move this to somewhere else to keep this clean?
+        # check if application id exists
+        app_id = args.app_id
+        apps = client.list_applications()
+        app_exists = app_id in [app_detail["id"] for app_detail in apps]
+        if not app_exists:
+            # TODO: Maybe defer this to be checked later? App_ids are not present immediately in SHS.
+            raise Exception(
+                f"{app_id} not found in Spark History Server. Check in sometime or validate app_id"
+            )
+        # TODO: Check here if the application run is completed...
+        # ---
+        app_env = client.get_environment(app_id)
+        env_parameters = {
+            "spark.executor.instances",
+            "spark.executor.memory",
+            "spark.dynamicAllocation",
+            "spark.memoryOverhead",
+        }
+        defined_exec_params = {
+            env[0]: env[1]
+            for env in list(
+                filter(
+                    lambda prop: prop[0] in env_parameters, app_env["sparkProperties"]
+                )
+            )
+        }
+        recommendations = client.get_recommended_executor_size(app_id)
+        print(
+            f"Recommended Executor Memory: {recommendations['suggested_heap'] / 1024**3}g"
+        )
+        print(
+            f"Recommneded Executor Overhead Memory: {recommendations['suggested_overhead'] / 1024**3}g"
+        )
+        print(
+            f"Current Executor Memory: {defined_exec_params['spark.executor.memory']}"
+        )
+        print(
+            f"Current Overhead Memory: {defined_exec_params['spark.executor.memoryOverhead'] or defined_exec_params['spark.executor.memoryOverheadFactor']}"
+        )
     else:
         print("Unknown action", file=sys.stderr)
 

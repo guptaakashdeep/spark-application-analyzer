@@ -7,8 +7,42 @@ This module contains dataclasses and data structures for:
 - PerformanceMetrics: CPU, I/O, and other performance indicators
 """
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
+import re
+from dataclasses import dataclass, asdict
+from typing import Optional, Dict, Any, Type, TypeVar
+
+T = TypeVar("T")
+
+
+def camelcase(cls: Type[T]) -> Type[T]:
+    """
+    Decorator to allow a dataclass to be initialized from camelCase keys.
+    Must be placed above the @dataclass decorator.
+    """
+
+    def _camel_to_snake(name: str) -> str:
+        """
+        Converts a camelCase string to snake_case, correctly handling acronyms.
+        """
+        name = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", name)
+        name = re.sub(r"([A-Z])([A-Z][a-z])", r"\1_\2", name)
+        return name.lower()
+
+    original_init = cls.__init__
+
+    def __init__(self, *args, **kwargs: Any):
+        if args:
+            raise TypeError(
+                f"{cls.__name__} only supports keyword arguments for initialization."
+            )
+
+        # Convert the incoming camelCase keys to snake_case.
+        snake_case_kwargs = {_camel_to_snake(k): v for k, v in kwargs.items()}
+        # Call the original dataclass __init__ with the corrected keys.
+        original_init(self, **snake_case_kwargs)
+
+    cls.__init__ = __init__
+    return cls
 
 
 @dataclass
@@ -24,14 +58,39 @@ class SparkApplication:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "status": self.status,
-            "start_time": self.start_time,
-            "end_time": self.end_time,
-            "user": self.user,
-        }
+        return asdict(self)
+
+
+@camelcase
+@dataclass
+class PeakExecutorMetrics:
+    """Represents peak executor metrics for an executor. All memory stats are in bytes."""
+
+    jvm_heap_memory: int
+    jvm_off_heap_memory: int
+    on_heap_execution_memory: int
+    off_heap_execution_memory: int
+    on_heap_storage_memory: int
+    off_heap_storage_memory: int
+    on_heap_unified_memory: int
+    off_heap_unified_memory: int
+    direct_pool_memory: int
+    mapped_pool_memory: int
+    process_tree_jvmv_memory: int
+    process_tree_jvmrss_memory: int
+    process_tree_python_v_memory: int
+    process_tree_python_rss_memory: int
+    process_tree_other_v_memory: int
+    process_tree_other_rss_memory: int
+    minor_gc_count: int
+    minor_gc_time: int  # in ms
+    major_gc_count: int
+    major_gc_time: int  # in ms
+    total_gc_time: int  # in ms
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 @dataclass
@@ -57,21 +116,4 @@ class ExecutorMetrics:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return {
-            "executor_id": self.executor_id,
-            "application_id": self.application_id,
-            "host": self.host,
-            "cores": self.cores,
-            "max_memory": self.max_memory,
-            "max_heap_memory": self.max_heap_memory,
-            "max_off_heap_memory": self.max_off_heap_memory,
-            "process_tree_jvm_vmemory": self.process_tree_jvm_vmemory,
-            "process_tree_jvm_rssmemory": self.process_tree_jvm_rssmemory,
-            "on_heap_execution_memory": self.on_heap_execution_memory,
-            "off_heap_execution_memory": self.off_heap_execution_memory,
-            "on_heap_storage_memory": self.on_heap_storage_memory,
-            "off_heap_storage_memory": self.off_heap_storage_memory,
-            "status": self.status,
-            "start_time": self.start_time,
-            "end_time": self.end_time,
-        }
+        return asdict(self)
