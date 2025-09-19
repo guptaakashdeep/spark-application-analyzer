@@ -3,7 +3,10 @@
 import argparse
 import sys
 import boto3
-from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
+from datetime import datetime
+from collectors.spark_history import SparkHistoryServerClient
+from storage.arrow_io import write_into_sink
+from utils.cli_colors import Colors
 
 
 def get_history_server_url(emr_id: str) -> str:
@@ -82,13 +85,29 @@ def main():
                 f"{app_id} not found in Spark History Server. Check in sometime or validate app_id"
             )
         # TODO: Check here if the application run is completed...
+        app_details = client.get_application(app_id)
         # ---
-        app_env = client.get_environment(app_id)
+        # TODO: Check whether attempts are there in application
+        attempt = app_details["attempts"][0].get("attemptId", None)
+
+        # Based on this URLs changes: whether attemptId will be taken into account or not
+        input_params = {
+            "metrics_collection_dt": datetime.now().date(),
+            "application_id": app_id,
+            "emr_id": args.emr_id,
+            "app_name": app_details["name"]
+        }
+        app_env = client.get_environment(app_id, attempt)
         env_parameters = {
             "spark.executor.instances",
             "spark.executor.memory",
-            "spark.dynamicAllocation",
-            "spark.memoryOverhead",
+            "spark.dynamicAllocation.enabled",
+            "spark.dynamicAllocation.minExecutors",
+            "spark.dynamicAllocation.maxExecutors",
+            "spark.executor.cores",
+            "spark.executor.memoryOverhead",
+            "spark.executor.memoryOverheadFactor",
+            "spark.executor.processTreeMetrics.enabled"
         }
         defined_exec_params = {
             env[0]: env[1]
@@ -98,19 +117,27 @@ def main():
                 )
             )
         }
-        recommendations = client.get_recommended_executor_size(app_id)
+        can_recommend = defined_exec_params.get("spark.executor.processTreeMetrics.enabled", False)
+        if not can_recommend:
+            print(f"{Colors.RED}{Colors.BOLD} Recommendations cannot be determined.Spark Application must run with configuration spark.executor.processTreeMetrics.enabled=true {Colors.END}")
+            sys.exit(0)
+        recommendations = client.get_recommended_executor_size(app_id, attempt)
+        exec_num_recommendations = client.get_recommended_executor_numbers(app_id, attempt)
         print(
-            f"Recommended Executor Memory: {recommendations['suggested_heap'] / 1024**3}g"
+            f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendations['suggested_heap_in_bytes'] / 1024**3}g"
         )
         print(
-            f"Recommneded Executor Overhead Memory: {recommendations['suggested_overhead'] / 1024**3}g"
+            f"Recommneded Executor Overhead Memory: {recommendations['suggested_overhead_in_bytes'] / 1024**3}g"
         )
         print(
-            f"Current Executor Memory: {defined_exec_params['spark.executor.memory']}"
+            f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {defined_exec_params['spark.executor.memory']}"
         )
         print(
-            f"Current Overhead Memory: {defined_exec_params['spark.executor.memoryOverhead'] or defined_exec_params['spark.executor.memoryOverheadFactor']}"
+            f"{Colors.YELLOW}{Colors.BOLD}Current Overhead Memory: {defined_exec_params.get('spark.executor.memoryOverhead', None) or defined_exec_params['spark.executor.memoryOverheadFactor']} {Colors.END}"
         )
+        full_recommendations = {"additional_details": defined_exec_params,**recommendations, **exec_num_recommendations, **input_params}
+        # TODO: Add sink_location -- should be defined via some config?!?!
+        write_into_sink(full_recommendations)
     else:
         print("Unknown action", file=sys.stderr)
 

@@ -8,8 +8,8 @@ This module contains dataclasses and data structures for:
 """
 
 import re
-from dataclasses import dataclass, asdict
-from typing import Optional, Dict, Any, Type, TypeVar
+from dataclasses import dataclass, asdict, field
+from typing import Optional, Dict, Any, Type, TypeVar, List
 
 T = TypeVar("T")
 
@@ -44,6 +44,27 @@ def camelcase(cls: Type[T]) -> Type[T]:
     cls.__init__ = __init__
     return cls
 
+@camelcase
+@dataclass
+class ApplicationAttempt:
+    """Represents an application attempt."""
+    start_time: str
+    end_time: Optional[str]
+    last_updated: str
+    duration: int
+    spark_user: str
+    completed: bool
+    app_spark_version: str
+    start_time_epoch: int
+    last_updated_epoch: int
+    end_time_epoch: int
+    system_app_start_time: Optional[int]
+    attempt_id: Optional[str] = field(default=None)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+
 
 @dataclass
 class SparkApplication:
@@ -51,10 +72,7 @@ class SparkApplication:
 
     id: str
     name: str
-    status: str
-    start_time: Optional[int] = None
-    end_time: Optional[int] = None
-    user: Optional[str] = None
+    attempts: List[ApplicationAttempt]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -92,27 +110,22 @@ class PeakExecutorMetrics:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
-
+@camelcase
 @dataclass
 class ExecutorMetrics:
     """Represents executor metrics from Spark History Server."""
 
-    executor_id: str
-    application_id: str
+    id: int
     host: str
-    cores: int
+    is_active: bool
+    total_duration: int  # in ms
+    total_cores: int
+    max_tasks: int
     max_memory: int  # in bytes
-    max_heap_memory: int  # in bytes
-    max_off_heap_memory: int  # in bytes
-    process_tree_jvm_vmemory: int  # in bytes
-    process_tree_jvm_rssmemory: int  # in bytes
-    on_heap_execution_memory: int  # in bytes
-    off_heap_execution_memory: int  # in bytes
-    on_heap_storage_memory: int  # in bytes
-    off_heap_storage_memory: int  # in bytes
-    status: str
-    start_time: Optional[int] = None
-    end_time: Optional[int] = None
+    add_time: int
+    remove_time: int
+    peak_executor_metrics: PeakExecutorMetrics
+
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
