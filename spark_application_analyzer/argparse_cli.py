@@ -3,10 +3,10 @@
 import argparse
 import sys
 import boto3
-from datetime import datetime
 from collectors.spark_history import SparkHistoryServerClient
-from storage.arrow_io import write_into_sink
+from storage.arrow_io import ParquetSink
 from utils.cli_colors import Colors
+from analyzer_service import AnalyzerService
 
 
 def get_history_server_url(emr_id: str) -> str:
@@ -14,11 +14,9 @@ def get_history_server_url(emr_id: str) -> str:
     client = boto3.client("emr")
     cluster = client.describe_cluster(ClusterId=emr_id)
     apps = cluster["Cluster"]["Applications"]
-    # Try common logic for Spark 3.x/EMR 7.x
     history_server_dns = None
     for app in apps:
         if app["Name"].lower() == "spark":
-            # A common pattern; adjust this if DNS field is different for your EMR version
             history_server_dns = (
                 f"http://{cluster['Cluster']['MasterPublicDnsName']}:18080"
             )
@@ -46,26 +44,29 @@ def main():
     parser.add_argument(
         "--app-id", type=str, help="Spark Application ID (for get-recommendation)"
     )
+    parser.add_argument(
+        "--sink-path",
+        type=str,
+        help="Path to save recommendation parquet file (e.g., s3://bucket/path)",
+    )
 
     args = parser.parse_args()
 
-    # Determine Spark History Server endpoint
     if args.emr_id:
         base_url = get_history_server_url(args.emr_id)
         print(f"Discovered Spark History Server URL via EMR: {base_url}")
     elif args.base_url:
         base_url = args.base_url
     else:
-        # Assume history server is local (common on EMR master)
         base_url = "http://localhost:18080"
         print("Assuming local history server: http://localhost:18080")
 
-    # Initialize client
-    client = SparkHistoryServerClient(base_url)
+    # Initialize the data source
+    source = SparkHistoryServerClient(base_url)
 
     # CLI Actions
     if args.action == "list-apps":
-        apps = client.list_applications()
+        apps = source.list_applications()
         for app in apps:
             print(
                 f"App ID: {app['id']}, Name: {app['name']}, Started: {app['attempts'][0]['startTime']}"
@@ -74,70 +75,47 @@ def main():
         if not args.app_id:
             print("Error: --app-id required for get-recommendation", file=sys.stderr)
             sys.exit(1)
-        # TODO: maybe move this to somewhere else to keep this clean?
-        # check if application id exists
-        app_id = args.app_id
-        apps = client.list_applications()
-        app_exists = app_id in [app_detail["id"] for app_detail in apps]
-        if not app_exists:
-            # TODO: Maybe defer this to be checked later? App_ids are not present immediately in SHS.
-            raise Exception(
-                f"{app_id} not found in Spark History Server. Check in sometime or validate app_id"
-            )
-        # TODO: Check here if the application run is completed...
-        app_details = client.get_application(app_id)
-        # ---
-        # TODO: Check whether attempts are there in application
-        attempt = app_details["attempts"][0].get("attemptId", None)
 
-        # Based on this URLs changes: whether attemptId will be taken into account or not
-        input_params = {
-            "metrics_collection_dt": datetime.now().date(),
-            "application_id": app_id,
-            "emr_id": args.emr_id,
-            "app_name": app_details["name"]
-        }
-        app_env = client.get_environment(app_id, attempt)
-        env_parameters = {
-            "spark.executor.instances",
-            "spark.executor.memory",
-            "spark.dynamicAllocation.enabled",
-            "spark.dynamicAllocation.minExecutors",
-            "spark.dynamicAllocation.maxExecutors",
-            "spark.executor.cores",
-            "spark.executor.memoryOverhead",
-            "spark.executor.memoryOverheadFactor",
-            "spark.executor.processTreeMetrics.enabled"
-        }
-        defined_exec_params = {
-            env[0]: env[1]
-            for env in list(
-                filter(
-                    lambda prop: prop[0] in env_parameters, app_env["sparkProperties"]
-                )
+        try:
+            # Initialize the Analyzer Service
+            analyzer = AnalyzerService(source)
+            app_details = analyzer.datasource.get_application(args.app_id)
+            attempt = app_details["attempts"][0].get("attemptId", None)
+            print("Attempt from application response >>", attempt)
+
+            # Generate recommendations
+            recommendation = analyzer.generate_recommendations(
+                args.app_id, attempt, args.emr_id
             )
-        }
-        can_recommend = defined_exec_params.get("spark.executor.processTreeMetrics.enabled", False)
-        if not can_recommend:
-            print(f"{Colors.RED}{Colors.BOLD} Recommendations cannot be determined.Spark Application must run with configuration spark.executor.processTreeMetrics.enabled=true {Colors.END}")
-            sys.exit(0)
-        recommendations = client.get_recommended_executor_size(app_id, attempt)
-        exec_num_recommendations = client.get_recommended_executor_numbers(app_id, attempt)
-        print(
-            f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendations['suggested_heap_in_bytes'] / 1024**3}g"
-        )
-        print(
-            f"Recommneded Executor Overhead Memory: {recommendations['suggested_overhead_in_bytes'] / 1024**3}g"
-        )
-        print(
-            f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {defined_exec_params['spark.executor.memory']}"
-        )
-        print(
-            f"{Colors.YELLOW}{Colors.BOLD}Current Overhead Memory: {defined_exec_params.get('spark.executor.memoryOverhead', None) or defined_exec_params['spark.executor.memoryOverheadFactor']} {Colors.END}"
-        )
-        full_recommendations = {"additional_details": defined_exec_params,**recommendations, **exec_num_recommendations, **input_params}
-        # TODO: Add sink_location -- should be defined via some config?!?!
-        write_into_sink(full_recommendations)
+
+            # Print results to console
+            print(
+                f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendation.suggested_heap_in_gb}g"
+            )
+            print(
+                f"Recommneded Executor Overhead Memory: {recommendation.suggested_overhead_in_gb}g"
+            )
+            print(
+                f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {recommendation.additional_details['spark.executor.memory']}"
+            )
+            print(
+                f"{Colors.YELLOW}{Colors.BOLD}Current Overhead Memory: {recommendation.additional_details.get('spark.executor.memoryOverhead', None) or recommendation.additional_details['spark.executor.memoryOverheadFactor']} {Colors.END}"
+            )
+
+            print(recommendation)
+
+            # Save results to sink if path is provided
+            if args.sink_path:
+                sink = ParquetSink(args.sink_path)
+                sink.save(recommendation)
+            else:
+                print("\n--sink-path not provided. Skipping save.")
+
+        except Exception as e:
+            print(f"{Colors.RED}Error: {e}{Colors.END}", file=sys.stderr)
+            raise e
+            # sys.exit(1)
+
     else:
         print("Unknown action", file=sys.stderr)
 

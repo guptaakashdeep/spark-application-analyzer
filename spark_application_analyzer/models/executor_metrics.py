@@ -44,10 +44,12 @@ def camelcase(cls: Type[T]) -> Type[T]:
     cls.__init__ = __init__
     return cls
 
+
 @camelcase
 @dataclass
 class ApplicationAttempt:
     """Represents an application attempt."""
+
     start_time: str
     end_time: Optional[str]
     last_updated: str
@@ -58,7 +60,7 @@ class ApplicationAttempt:
     start_time_epoch: int
     last_updated_epoch: int
     end_time_epoch: int
-    system_app_start_time: Optional[int]
+    system_app_start_time: Optional[int] = field(default=None)
     attempt_id: Optional[str] = field(default=None)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -110,6 +112,7 @@ class PeakExecutorMetrics:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
+
 @camelcase
 @dataclass
 class ExecutorMetrics:
@@ -125,7 +128,6 @@ class ExecutorMetrics:
     add_time: int
     remove_time: int
     peak_executor_metrics: PeakExecutorMetrics
-
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""

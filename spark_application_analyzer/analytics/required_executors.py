@@ -1,20 +1,7 @@
-import json
-from datetime import datetime
 import numpy as np
-import requests
-from typing import List, Tuple
+from typing import List
 from models.executor_metrics import ExecutorMetrics
 from utils.cli_colors import Colors
-
-
-# app_end_time = "2025-08-26T10:49:39.547GMT"  # <== fill this from your /applications API or selected app JSON
-# app_end_time_ms = _dt(app_end_time)
-
-# app_id = "application_1756176332935_0487"
-# app_id = "application_1756268645419_0648"
-# base_url = "http://localhost:18080/api/v1"
-# app_details = requests.get(f"{base_url}/applications/{app_id}", verify=False).json()
-# app_end_time = _dt(app_details["attempts"][0]["endTime"])
 
 
 def _parse_executor_events(executors):
@@ -23,11 +10,6 @@ def _parse_executor_events(executors):
     for ex in executors:
         start = ex.add_time
         end = ex.remove_time
-        # end = (
-        #     parse_dt(ex["removeTime"])
-        #     if "removeTime" in ex and ex["removeTime"]
-        #     else app_end_time
-        # )
         cores = ex.max_tasks if ex.max_tasks else ex.total_cores
         periods.append((start, end, cores))
     return periods
@@ -94,7 +76,9 @@ def _recommend_max_executors(concurrency_curve, idle_rows, target_idle_pct=15):
     adjustment_factor = 1 - (avg_idle_pct / 100.0)
     # Only adjust if idle is above target band. If below, recommend current value.
     if avg_idle_pct > target_idle_pct:
-        print(f"{Colors.RED}{Colors.BOLD} Idle percentage is above {target_idle_pct}% {Colors.END}")
+        print(
+            f"{Colors.RED}{Colors.BOLD} Idle percentage is above {target_idle_pct}% {Colors.END}"
+        )
         recommended_max = max(int(max_executors_p95 * adjustment_factor), 1)
     else:
         recommended_max = max_executors_p95
@@ -109,14 +93,7 @@ def _recommend_max_executors(concurrency_curve, idle_rows, target_idle_pct=15):
     }
 
 
-# ---- LOAD & PROCESS ----
-# with open("allexecutors.json") as f:
-#     executors = json.load(f)
-
-# executors_url = f"{base_url}/applications/{app_id}/1/allexecutors"
-# executors = requests.get(executors_url, verify=False, timeout=10).json()
-
-def recommend_num_executors(executor_metrics: ExecutorMetrics):
+def recommend_num_executors(executor_metrics: List[ExecutorMetrics]):
     # executors = executor_metrics.to_dict()
     # Optimal executor/core concurrency (as before)
     periods = _parse_executor_events(executor_metrics)
@@ -132,7 +109,9 @@ def recommend_num_executors(executor_metrics: ExecutorMetrics):
 
     # Recommendation calculation
     recommendation = _recommend_max_executors(exe_curve, idle_rows, target_idle_pct=15)
-    print(f"{Colors.GREEN}{Colors.BOLD}Suggested dynamicAllocation.maxExecutors based on idle slot metrics:")
+    print(
+        f"{Colors.GREEN}{Colors.BOLD}Suggested dynamicAllocation.maxExecutors based on idle slot metrics:"
+    )
     print(f"  Current observed max (p95): {recommendation['current_p95_maxExecutors']}")
     print(f"  Average Executor Idle Percentage: {recommendation['avg_idle_pct']:.2f}%")
     print(
@@ -143,6 +122,7 @@ def recommend_num_executors(executor_metrics: ExecutorMetrics):
         f"  ---> Recommended spark.dynamicAllocation.maxExecutors: {recommendation['recommended_maxExecutors']} {Colors.END}"
     )
     return recommendation
+
 
 # ------- REVISIT LATER --------
 # Optional: Save CSV for graphing if needed

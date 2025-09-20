@@ -115,6 +115,26 @@ spark_application_analyzer/
 └── cli.py             # Command-line interface
 ```
 
+## Architecture Diagram
+
+```mermaid
+graph TD
+    A[User via CLI] --> B(argparse_cli.py);
+    B --> C{Input Source};
+    C -- EMR ID --> D[AWS EMR];
+    D -- History Server URL --> E[Spark History Client];
+    C -- URL (User Provided) --> E;
+    C -- Default (Local History Server) --> E;
+    E --> F[Spark History Server];
+    B --> G[Analyzer Service];
+    E -- App Data --> G;
+    G --> H[Analytics Engine];
+    H -- Recommendation --> G;
+    G -- Recommendation --> I{Output};
+    I -- Console --> A;
+    I -- Parquet File --> J["Data Sink (S3/Local)"];
+```
+
 ## Right-Sizing Logic
 
 The framework implements LinkedIn's approach with the following key features:

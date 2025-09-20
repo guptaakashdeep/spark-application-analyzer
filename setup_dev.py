@@ -34,7 +34,7 @@ def main():
     venv_path = Path(".venv")
     if not venv_path.exists():
         print("Creating virtual environment...")
-        run_command("python -m venv .venv")
+        run_command("python3 -m venv .venv")
         print("Virtual environment created!")
     else:
         print("Virtual environment already exists.")
@@ -42,7 +42,7 @@ def main():
     # Install package in development mode
     print("Installing package in development mode...")
     try:
-        run_command("pip install -e .")
+        run_command("pip3 install -e .")
         print("Package installed successfully!")
     except subprocess.CalledProcessError:
         print("Failed to install package. Trying to upgrade pip first...")
@@ -53,11 +53,11 @@ def main():
     # Install development dependencies
     print("Installing development dependencies...")
     try:
-        run_command("pip install -e '.[dev]'")
+        run_command("pip3 install -e '.[dev]'")
         print("Development dependencies installed successfully!")
     except subprocess.CalledProcessError:
         print("Warning: Could not install development dependencies.")
-        print("You can install them manually with: pip install -e '.[dev]'")
+        print("You can install them manually with: pip3 install -e '.[dev]'")
 
     # Create config.yaml from example if it doesn't exist
     config_path = Path("config.yaml")

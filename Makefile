@@ -7,10 +7,10 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install the package in development mode
-	pip install -e .
+	pip3 install -e .
 
 install-dev: ## Install the package with development dependencies
-	pip install -e ".[dev]"
+	pip3 install -e ".[dev]"
 
 clean: ## Clean up build artifacts and cache
 	rm -rf build/
@@ -53,10 +53,10 @@ dist: ## Create distribution packages
 clean-build: clean build ## Clean and rebuild
 
 install-local: ## Install the package locally
-	pip install dist/*.whl
+	pip3 install dist/*.whl
 
 uninstall: ## Uninstall the package
-	pip uninstall spark-application-analyzer -y
+	pip3 uninstall spark-application-analyzer -y
 
 setup-dev: ## Set up development environment
 	@echo "Setting up development environment..."
