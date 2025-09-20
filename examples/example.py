@@ -9,6 +9,8 @@ try:
         application_id="application_1756176332935_0487",  # Replace with your app ID
     )
 
+    print(recommendation.to_dict())
+
     print("\n--- Analysis Complete ---")
     print(f"Application: {recommendation.app_name}")
     print(f"Recommended Executor Heap: {recommendation.suggested_heap_in_gb} GB")

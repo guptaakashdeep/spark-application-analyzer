@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import date
 from typing import Dict, Any, Optional
 
@@ -31,3 +31,7 @@ class Recommendation:
 
     # Additional details from environment
     additional_details: Dict[str, Any]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)

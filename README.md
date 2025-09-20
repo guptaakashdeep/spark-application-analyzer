@@ -112,7 +112,8 @@ spark_application_analyzer/
 ├── storage/            # Arrow/Parquet storage and persistence
 ├── config/             # T-shirt sizing and configuration management
 ├── utils/              # Utility functions and helpers
-└── cli.py             # Command-line interface
+├── cli.py             # Command-line interface
+└── api.py             # Programatic interface
 ```
 
 ## Architecture Diagram
@@ -159,14 +160,30 @@ SUGGESTED_OVERHEAD = p90(OVERHEAD_MEMORY) + BUFFER * (p90_OVERHEAD / p90_TOTAL)
 ### JSON Recommendations
 ```json
 {
-  "application_id": "app-123",
-  "executor_id": "1",
-  "current_heap_memory_gb": 8.0,
-  "recommended_heap_memory_gb": 10.5,
-  "current_total_memory_gb": 12.0,
-  "recommended_total_memory_gb": 14.2,
-  "buffer_percentage": 25.0,
-  "percentile_gap_warning": false
+    "application_id": "application_1756176332935_0487",
+    "app_name": "example.py",
+    "metrics_collection_dt": datetime.date(2025,9,20),
+    "emr_id": "",
+    "suggested_heap_in_bytes": 17741989504.219635,
+    "suggested_overhead_in_bytes": 2452978048.0303664,
+    "suggested_heap_in_gb": 17,
+    "suggested_overhead_in_gb": 2,
+    "buffer": 0.25,
+    "current_p95_maxExecutors": 17,
+    "avg_idle_pct": np.float64(37.673527550450174),
+    "p95_idle_pct": np.float64(90.31109764088725),
+    "recommended_maxExecutors": 10,
+    "target_idle_pct": 15,
+    "additional_details": {
+        "spark.dynamicAllocation.enabled": "true",
+        "spark.dynamicAllocation.maxExecutors": "16",
+        "spark.dynamicAllocation.minExecutors": "4",
+        "spark.executor.cores": "5",
+        "spark.executor.instances": "8",
+        "spark.executor.memory": "17g",
+        "spark.executor.memoryOverheadFactor": "0.1",
+        "spark.executor.processTreeMetrics.enabled": "true"
+    }
 }
 ```
 
