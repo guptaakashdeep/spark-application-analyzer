@@ -1,19 +1,26 @@
 from datetime import datetime
 from typing import Optional
-
-from collectors.datasource import IDataSource
-from models.recommendation import Recommendation
-from analytics.memory_stats import recommend_executor_mem
-from analytics.required_executors import recommend_num_executors
-from models.executor_metrics import ExecutorMetrics, PeakExecutorMetrics
-from utils.cli_colors import Colors
+from spark_application_analyzer.collectors.datasource import IDataSource
+from spark_application_analyzer.models.recommendation import Recommendation
+from spark_application_analyzer.analytics.base import (
+    BaseMemoryStrategy,
+    BaseExecutorStrategy,
+)
+from spark_application_analyzer.utils.cli_colors import Colors
 
 
 class AnalyzerService:
     """Orchestrates the analysis of a Spark application to provide recommendations."""
 
-    def __init__(self, datasource: IDataSource):
+    def __init__(
+        self,
+        datasource: IDataSource,
+        memory_strategy: BaseMemoryStrategy,
+        executor_strategy: BaseExecutorStrategy,
+    ):
         self.datasource = datasource
+        self.memory_strategy = memory_strategy
+        self.executor_strategy = executor_strategy
 
     def generate_recommendations(
         self, app_id: str, attempt_id: Optional[str], emr_id: Optional[str]
@@ -21,11 +28,11 @@ class AnalyzerService:
         """
         Fetches data, runs analysis, and returns a recommendation object.
         """
-        # 1. Get all raw data from the datasource
+        # 1. Get application environment data
         app_details = self.datasource.get_application(app_id)
         app_env = self.datasource.get_environment(app_id, attempt_id)
 
-        # 2. Perform validation (moved from CLI)
+        # 2. Perform validation
         env_parameters = {
             "spark.executor.instances",
             "spark.executor.memory",
@@ -56,23 +63,20 @@ class AnalyzerService:
                 f"{Colors.RED}{Colors.BOLD}Recommendations cannot be determined. Spark Application must run with configuration spark.executor.processTreeMetrics.enabled=true {Colors.END}"
             )
 
-        # 3. Get metrics and run analysis
-        # Memory analysis
-        peak_executor_metrics_raw = self.datasource.get_peak_memory_metrics(
+        # 3. Get metrics and run analysis using strategies
+        # Note: Assuming a method that returns a complete list of ExecutorMetrics.
+        # This might need to be implemented in the datasource implementation.
+        peak_executor_metrics = self.datasource.get_peak_memory_metrics(
             app_id, attempt_id
         )
-        jvm_heap_peaks = [
-            p["jvm_heap_memory"] + p["jvm_off_heap_memory"]
-            for p in peak_executor_metrics_raw
-        ]
-        jvm_rss_peaks = [
-            p["process_tree_jvmrss_memory"] for p in peak_executor_metrics_raw
-        ]
-        mem_recommendations = recommend_executor_mem(jvm_heap_peaks, jvm_rss_peaks)
-
-        # Executor number analysis
         executor_details = self.datasource.get_executor_details(app_id, attempt_id)
-        exec_num_recommendations = recommend_num_executors(executor_details)
+
+        mem_recommendations = self.memory_strategy.generate_recommendation(
+            peak_executor_metrics
+        )
+        exec_num_recommendations = self.executor_strategy.generate_recommendation(
+            executor_details
+        )
 
         # 4. Assemble the final Recommendation object
         recommendation = Recommendation(

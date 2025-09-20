@@ -8,7 +8,7 @@ import pyarrow.parquet as pq
 import s3fs
 from dataclasses import asdict
 
-from models.recommendation import Recommendation
+from spark_application_analyzer.models.recommendation import Recommendation
 from .datasink import IDataSink
 
 

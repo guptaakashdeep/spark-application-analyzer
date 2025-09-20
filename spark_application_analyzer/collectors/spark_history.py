@@ -5,13 +5,13 @@ import requests
 from typing import List, Optional, Dict, Any
 from dataclasses import asdict
 
-from models.executor_metrics import (
+from spark_application_analyzer.models.executor_metrics import (
     SparkApplication,
     ApplicationAttempt,
     ExecutorMetrics,
     PeakExecutorMetrics,
 )
-from utils.conversions import convert_dt_to_ms
+from spark_application_analyzer.utils.conversions import convert_dt_to_ms
 from .datasource import IDataSource
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class SparkHistoryServerClient(IDataSource):
             for executor in all_executors
             if executor["id"] != "driver" and "peakMemoryMetrics" in executor.keys()
         ]
-        return [asdict(m) for m in peak_metrics]
+        return peak_metrics
 
     def get_executor_details(
         self, app_id: str, attempt_id: Optional[int]

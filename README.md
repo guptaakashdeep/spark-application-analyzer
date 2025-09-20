@@ -206,41 +206,56 @@ pytest
 - **config/**: Configuration management and t-shirt sizing
 - **utils/**: Helper functions and logging setup
 
-## Integration
+## Programmatic Usage
 
-The package provides multiple integration options for different use cases. **Important:** Use explicit imports from specific modules for best performance.
+For programmatic use, the library provides a high-level `analyze_application` function that handles all component initialization and returns a complete recommendation object. This is the recommended way to integrate the analyzer into your own Python code.
 
-### Programmatic Usage
-
-```python
-from spark_application_analyzer.argparse_cli import analyze_applications, list_applications
-
-# Simple function calls
-apps = list_applications(history_server_url="http://localhost:18080")
-result = analyze_applications(history_server_url="http://localhost:18080", output_dir="./results")
-```
-
-### CLI Class Integration
+### Example
 
 ```python
-from spark_application_analyzer.argparse_cli import SparkAnalyzerCLI
+from spark_application_analyzer import analyze_application
+from spark_application_analyzer.models.recommendation import Recommendation
 
-cli = SparkAnalyzerCLI()
-exit_code = cli.run(['analyze', '--history-server-url', 'http://localhost:18080'])
+# --- Example 1: Using an EMR Cluster ID ---
+try:
+    print("--- Analyzing application using EMR ID ---")
+    # The function will automatically discover the Spark History Server URL
+    recommendation: Recommendation = analyze_application(
+        application_id="application_1678886400000_0001", # Replace with your app ID
+        emr_id="j-12345ABCDEF" # Replace with your EMR ID
+    )
+
+    print("\n--- Analysis Complete ---")
+    print(f"Application: {recommendation.app_name}")
+    print(f"Recommended Executor Heap: {recommendation.suggested_heap_in_gb} GB")
+    print(f"Recommended Executor Overhead: {recommendation.suggested_overhead_in_gb} GB")
+    print(f"Recommended Max Executors: {recommendation.recommended_maxExecutors}")
+
+except Exception as e:
+    print(f"An error occurred: {e}")
+
+
+# --- Example 2: Using a direct URL ---
+try:
+    print("\n--- Analyzing application using direct URL ---")
+    recommendation: Recommendation = analyze_application(
+        application_id="application_1678886400000_0002", # Replace with your app ID
+        base_url="http://localhost:18080"
+    )
+
+    print("\n--- Analysis Complete ---")
+    # The 'recommendation' object contains all the details
+    print(recommendation)
+
+except Exception as e:
+    print(f"An error occurred: {e}")
 ```
 
-### Core Components
+### Using as a CLI tool
 
-```python
-from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
-from spark_application_analyzer.analytics.memory_stats import MemoryAnalyzer
-
-client = SparkHistoryServerClient(history_server_url="http://localhost:18080")
-analyzer = MemoryAnalyzer()
-# Build custom workflows
+```bash
+python3 spark_application_analyzer/argparse_cli.py --action get-recommendation --app-id application_1756176332935_0487
 ```
-
-See the `examples/` directory for comprehensive integration examples.
 
 ## Contributing
 
@@ -258,13 +273,14 @@ MIT License - see LICENSE file for details.
 ## Acknowledgments
 
 - Inspired by [LinkedIn's Spark Right-Sizing Project](https://www.linkedin.com/blog/engineering/infrastructure/right-sizing-spark-executor-memory)
-- Built with modern Python tooling (pyarrow, click, ruff)
+- Built with modern Python tooling (pyarrow, ruff)
 - Designed for AWS EMR environments
 
 ## Roadmap
 
+- [x] Executor Memory Recommendation
+- [x] Num Executor Recommendation
 - [ ] Stage metrics analysis for bottleneck identification
 - [ ] Shuffle partition optimization recommendations
 - [ ] Real-time monitoring and alerting
 - [ ] Integration with Spark job submission
-- [ ] Machine learning-based optimization
