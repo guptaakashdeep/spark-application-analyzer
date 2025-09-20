@@ -2,10 +2,10 @@
 
 import argparse
 import sys
-from collectors.spark_history import SparkHistoryServerClient
-from utils.cli_colors import Colors
-from utils.aws import get_history_server_url
-from api import analyze_application
+from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
+from spark_application_analyzer.utils.cli_colors import Colors
+from spark_application_analyzer.utils.aws import get_history_server_url
+from spark_application_analyzer.api import analyze_application
 
 
 def main():

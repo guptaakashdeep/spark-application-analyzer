@@ -46,29 +46,20 @@ pip install -r requirements.txt
 
 ```bash
 # List available Spark applications
-spark-analyzer list-apps --history-server-url http://localhost:18080
+spark-analyzer list-apps --base-url http://localhost:18080
 
 # Get executor metrics for a specific application
-spark-analyzer get-metrics app-123 --history-server-url http://localhost:18080
+spark-analyzer --app-id app-123 --action get-recommendation --base-url http://localhost:18080
 
 # Analyze applications and generate recommendations
-spark-analyzer analyze --history-server-url http://localhost:18080 --output-dir ./results
-```
-
-### Alternative CLI (argparse)
-
-For integration into existing code, you can also use the argparse-based CLI:
-
-```bash
-python -m spark_application_analyzer.argparse_cli list-apps --history-server-url http://localhost:18080
-python -m spark_application_analyzer.argparse_cli analyze --history-server-url http://localhost:18080 --output-dir ./results
+spark-analyzer --base-url http://localhost:18080 --sink_path ./results
 ```
 
 ### EMR Integration
 
 ```bash
 # Automatically discover history server from EMR cluster
-spark-analyzer analyze --emr-id j-1234567890 --output-dir ./results
+spark-analyzer --emr-id j-1234567890 --app-id app-123 --action get-recommendation --sink_path s3://bucket/folder/
 ```
 
 ## Configuration
