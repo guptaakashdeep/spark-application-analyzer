@@ -77,7 +77,12 @@ class SparkHistoryServerClient(IDataSource):
                 for attempt in spark_application["attempts"]
             ],
         )
-        application_end_time = application_detail.attempts[0].end_time
+        app_attempt = application_detail.attempts[0]
+        # To handle cases where application even after completion is also not moved to
+        # Completed applications
+        application_end_time = (app_attempt.end_time_epoch 
+                    if app_attempt.completed else app_attempt.last_updated_epoch
+                    )
         executor_details = self.get_executors(app_id, attempt_id)
         for executor in executor_details:
             if executor["id"] == "driver" or "peakMemoryMetrics" not in executor.keys():
@@ -92,9 +97,7 @@ class SparkHistoryServerClient(IDataSource):
                     max_tasks=executor.get("maxTasks"),
                     max_memory=executor.get("maxMemory"),
                     add_time=convert_dt_to_ms(executor.get("addTime")),
-                    remove_time=convert_dt_to_ms(
-                        executor.get("removeTime", application_end_time)
-                    ),
+                    remove_time=convert_dt_to_ms(remove_time_str) if (remove_time_str := executor.get("removeTime")) else application_end_time,
                     peak_executor_metrics=PeakExecutorMetrics(
                         **executor["peakMemoryMetrics"]
                     ),
