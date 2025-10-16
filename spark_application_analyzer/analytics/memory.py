@@ -1,6 +1,10 @@
-from typing import List, Dict, Any
-from .base import BaseMemoryStrategy
+from typing import Any
+from typing import Dict
+from typing import List
+
 from spark_application_analyzer.models.executor_metrics import PeakExecutorMetrics
+
+from .base import BaseMemoryStrategy
 
 
 class MaxMemoryStrategy(BaseMemoryStrategy):
@@ -38,9 +42,9 @@ class MaxMemoryStrategy(BaseMemoryStrategy):
             max_overhead_memory / max_total_memory
         )
         return {
-            "suggested_heap_in_bytes": suggested_heap,
-            "suggested_overhead_in_bytes": suggested_overhead,
-            "suggested_heap_in_gb": round(suggested_heap / (1024**3)),
-            "suggested_overhead_in_gb": round(suggested_overhead / (1024**3)),
+            "recommended_heap_bytes": suggested_heap,
+            "recommended_overhead_bytes": suggested_overhead,
+            "recommended_heap_gb": round(suggested_heap / (1024**3)),
+            "recommended_overhead_gb": round(suggested_overhead / (1024**3)),
             "buffer": buffer,
         }
