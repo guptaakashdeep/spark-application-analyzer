@@ -1,11 +1,11 @@
 # cli.py
-
 import argparse
 import sys
-from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
-from spark_application_analyzer.utils.cli_colors import Colors
-from spark_application_analyzer.utils.aws import get_history_server_url
+
 from spark_application_analyzer.api import analyze_application
+from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
+from spark_application_analyzer.utils.aws import get_history_server_url
+from spark_application_analyzer.utils.cli_colors import Colors
 
 
 def main():
@@ -59,31 +59,36 @@ def main():
         try:
             # Delegate all core logic to the programmatic API
             print("--- Analyzing Application ---")
-            recommendation = analyze_application(
+            results = analyze_application(
                 application_id=args.app_id,
                 emr_id=args.emr_id,
                 base_url=args.base_url,
                 sink_path=args.sink_path,
             )
 
+            recommendation = results.recommendation
+            bottlenecks = results.bottlenecks
+
             # The CLI is now only responsible for presentation
             print("\n--- Recommendation Summary ---")
             print(
-                f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendation.suggested_heap_in_gb}g"
+                f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendation.recommended_heap_gb}g"
             )
             print(
-                f"Recommneded Executor Overhead Memory: {recommendation.suggested_overhead_in_gb}g"
+                f"Recommneded Executor Overhead Memory: {recommendation.recommended_overhead_gb}g"
             )
             print(
-                f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {recommendation.additional_details['spark.executor.memory']}"
+                f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {recommendation.current_configuration['spark.executor.memory']}"
             )
             print(
-                f"{Colors.YELLOW}{Colors.BOLD}Current Overhead Memory: {recommendation.additional_details.get('spark.executor.memoryOverhead', None) or recommendation.additional_details['spark.executor.memoryOverheadFactor']} {Colors.END}"
+                f"{Colors.YELLOW}{Colors.BOLD}Current Overhead Memory: {recommendation.current_configuration.get('spark.executor.memoryOverhead', None) or recommendation.current_configuration['spark.executor.memoryOverheadFactor']} {Colors.END}"
             )
             print("\nFull recommendation object:")
             print(recommendation)
+            print("\nBottleneck information:")
+            print(bottlenecks)
             if args.sink_path:
-                print(f"\nRecommendation also saved to {args.sink_path}")
+                print(f"\Analysis results also saved to {args.sink_path}")
 
         except Exception as e:
             print(f"{Colors.RED}Error: {e}{Colors.END}", file=sys.stderr)
