@@ -1,6 +1,11 @@
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
+from dataclasses import dataclass
+from dataclasses import field
 from datetime import date
-from typing import Dict, Any, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
 
 
 @dataclass
@@ -12,26 +17,70 @@ class Recommendation:
     # Input parameters & App Details
     application_id: str
     app_name: str
+    time_taken: float
     metrics_collection_dt: date
     emr_id: Optional[str]
 
     # Memory recommendations from recommend_executor_mem
-    suggested_heap_in_bytes: float
-    suggested_overhead_in_bytes: float
-    suggested_heap_in_gb: int
-    suggested_overhead_in_gb: int
+    recommended_heap_bytes: float
+    recommended_overhead_bytes: float
+    recommended_heap_gb: int
+    recommended_overhead_gb: int
     buffer: float
 
     # Executor number recommendations from recommend_num_executors
-    current_p95_maxExecutors: int
     avg_idle_pct: float
-    p95_idle_pct: float
-    recommended_maxExecutors: int
     target_idle_pct: float
+    current_p95_maxExecutors: int
+    recommended_maxExecutors: int
 
     # Additional details from environment
-    additional_details: Dict[str, Any]
+    current_configuration: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
+
+
+@dataclass
+class HighSpillStages:
+    stage_id: int
+    name: str
+    memory_spilled_mb: float
+    disk_spilled_mb: float
+
+
+@dataclass
+class SlowestStages:
+    stage_id: int
+    name: str
+    duration_secs: float
+    task_count: int
+    failed_tasks: int
+    killed_tasks: int
+
+
+@dataclass
+class SlowestJobs:
+    job_id: int
+    name: str
+    duration_secs: float
+    stages_count: int
+    task_count: int
+    failed_tasks: int
+
+
+@dataclass
+class Bottlenecks:
+    num_jobs: int
+    num_stages: int
+    slowest_jobs: Optional[List[SlowestJobs]] = field(default_factory=list)
+    slowest_stages: Optional[List[SlowestStages]] = field(default_factory=list)
+    high_spill_stages: Optional[List[HighSpillStages]] = field(default_factory=list)
+    gc_pressure_ratio: Optional[float] = field(default=0.0)
+
+
+@dataclass
+class AnalysisResults:
+    recommendation: Recommendation
+    bottlenecks: Bottlenecks
