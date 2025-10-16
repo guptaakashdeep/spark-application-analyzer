@@ -1,8 +1,12 @@
+from typing import Any
+from typing import Dict
+from typing import List
+
 import numpy as np
-from typing import List, Dict, Any
-from .base import BaseExecutorStrategy
 from spark_application_analyzer.models.executor_metrics import ExecutorMetrics
 from spark_application_analyzer.utils.cli_colors import Colors
+
+from .base import BaseExecutorStrategy
 
 
 class IdleTimeStrategy(BaseExecutorStrategy):
@@ -80,6 +84,7 @@ class IdleTimeStrategy(BaseExecutorStrategy):
         else:
             recommended_max = max_executors_p95
 
+        # p95_idle_pct is poped out before returning
         return {
             "current_p95_maxExecutors": max_executors_p95,
             "avg_idle_pct": avg_idle_pct,
@@ -116,7 +121,7 @@ class IdleTimeStrategy(BaseExecutorStrategy):
             f"  Average Executor Idle Percentage: {recommendation['avg_idle_pct']:.2f}%"
         )
         print(
-            f"  95th Percentile Executor Idle Percentage: {recommendation['p95_idle_pct']:.2f}%"
+            f"  95th Percentile Executor Idle Percentage: {recommendation.pop('p95_idle_pct'):.2f}%"
         )
         print(f"  Target max idle for tuning: {recommendation['target_idle_pct']}%")
         print(
