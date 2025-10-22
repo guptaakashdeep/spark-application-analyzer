@@ -1,4 +1,7 @@
+from typing import Optional
+
 import boto3
+import pyarrow.dataset as ds
 
 
 def get_history_server_url(emr_id: str) -> str:
@@ -18,3 +21,17 @@ def get_history_server_url(emr_id: str) -> str:
             "Could not determine Spark History Server URL for this EMR cluster."
         )
     return history_server_dns
+
+
+# TODO: Maybe move to somewhere else?
+def read_logs(log_location) -> Optional[ds.dataset]:
+    """Read processed_configruation logs from the Parquet dataset."""
+    if not log_location:
+        return None
+
+    try:
+        dataset = ds.dataset(log_location, format="parquet", partitioning="hive")
+        return dataset
+    except Exception as e:
+        print(f"Error reading logs from {log_location}: {e}")
+        raise e

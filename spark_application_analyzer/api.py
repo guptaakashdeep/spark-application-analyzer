@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from spark_application_analyzer.analytics.bottleneck import (
@@ -18,6 +19,7 @@ def analyze_application(
     emr_id: Optional[str] = None,
     base_url: Optional[str] = None,
     sink_path: Optional[str] = None,
+    log_path: Optional[str] = None,
 ) -> AnalysisResults:
     """
     A high-level function to analyze a Spark application and generate recommendations.
@@ -33,10 +35,10 @@ def analyze_application(
     :param sink_path: Optional path to save the recommendation parquet file.
     :return: A Recommendation object containing the analysis results.
     """
-    if emr_id:
-        final_base_url = get_history_server_url(emr_id)
-    elif base_url:
+    if base_url:
         final_base_url = base_url
+    elif emr_id:
+        final_base_url = get_history_server_url(emr_id)
     else:
         final_base_url = "http://localhost:18080"
 
@@ -48,30 +50,54 @@ def analyze_application(
     executor_strategy = IdleTimeStrategy()
     performance_strategy = PerformanceBottleneckStrategy()
 
+    # 2.1 Initialize logging data
+    log_data = {
+        "application_id": application_id,
+        "first_seen_timestamp": datetime.now(),
+        "processed_date": datetime.now().date(),
+    }
+
     # 3. Initialize the Analyzer Service
     analyzer = AnalyzerService(
         source, memory_strategy, executor_strategy, performance_strategy
     )
-
-    # 4. Get application details to find the latest attempt
-    app_details = SparkApplication(
-        **analyzer.datasource.get_application(application_id)
-    )
-    # TODO: what happens if there are multiple attempts ?!?!
-    # Handle this based on getting the one with completed status.
-    attempt_id = app_details.attempts[0].get("attemptId")
-    # attempt_id = app_details["attempts"][0].get("attemptId")
-
-    # 5. Generate recommendations
-    results = analyzer.generate_recommendations(
-        app_details=app_details, attempt_id=attempt_id, emr_id=emr_id
-    )
-    # recommendation = results.recommendation
-    # bottlenecks = results.bottlenecks
-
-    # 6. Optionally save the results
     if sink_path:
-        sink = ParquetSink(sink_path)
-        sink.save(results)
+        sink = ParquetSink(sink_path, log_path)
 
-    return results
+    try:
+        # 4. Get application details to find the latest attempt
+        app_details = SparkApplication.from_dict(
+            analyzer.datasource.get_application(application_id)
+        )
+        # TODO: what happens if there are multiple attempts ?!?!
+        # Should take only the success one ? out of multiple attempts?
+        success_attempt = app_details.attempts[0]
+        # Handle this based on getting the one with completed status.
+        attempt_id = success_attempt.attempt_id
+
+        log_data["completion_timestamp"] = success_attempt.end_time
+        log_data["app_name"] = app_details.name
+
+        # 5. Generate recommendations
+        results = analyzer.generate_recommendations(
+            app_details=app_details, attempt_id=attempt_id, emr_id=emr_id
+        )
+        # recommendation = results.recommendation
+        # bottlenecks = results.bottlenecks
+        log_data["processed_timestamp"] = datetime.now()
+        log_data["processing_status"] = "SUCCESS"
+        log_data["failure_reason"] = None
+
+        # 6. Optionally save the results
+        if sink_path:
+            sink.save(results)
+            sink.log(log_data)
+        return results
+
+    except Exception as e:
+        log_data["processed_timestamp"] = datetime.now()
+        log_data["processing_status"] = "FAILED"
+        log_data["failure_reason"] = str(e)
+        if sink_path:
+            sink.log(log_data)
+        raise e

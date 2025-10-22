@@ -35,6 +35,11 @@ class ApplicationAttempt:
     system_app_start_time: Optional[int] = field(default=None)
     attempt_id: Optional[str] = field(default=None)
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ApplicationAttempt":
+        """Create ApplicationAttempt from dictionary with camelCase keys."""
+        return cls(**data)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
@@ -47,6 +52,19 @@ class SparkApplication:
     id: str
     name: str
     attempts: List[ApplicationAttempt]
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SparkApplication":
+        """Create SparkApplication from dictionary with nested conversion."""
+        # Convert attempts list from dicts to ApplicationAttempt objects
+        attempts = [
+            ApplicationAttempt.from_dict(attempt)
+            if isinstance(attempt, dict)
+            else attempt
+            for attempt in data.get("attempts", [])
+        ]
+
+        return cls(id=data["id"], name=data["name"], attempts=attempts)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""

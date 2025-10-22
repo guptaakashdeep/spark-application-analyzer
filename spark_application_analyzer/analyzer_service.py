@@ -9,7 +9,8 @@ from spark_application_analyzer.models.executor_metrics import SparkApplication
 from spark_application_analyzer.models.recommendation import AnalysisResults
 from spark_application_analyzer.models.recommendation import Bottlenecks
 from spark_application_analyzer.models.recommendation import Recommendation
-from spark_application_analyzer.utils.cli_colors import Colors
+
+# from spark_application_analyzer.utils.cli_colors import Colors
 
 
 class AnalyzerService:
@@ -71,7 +72,7 @@ class AnalyzerService:
         )
         if not can_recommend:
             raise ValueError(
-                f"{Colors.RED}{Colors.BOLD}Recommendations cannot be determined. Spark Application must run with configuration spark.executor.processTreeMetrics.enabled=true {Colors.END}"
+                "Recommendations cannot be determined. Spark Application must run with configuration spark.executor.processTreeMetrics.enabled=true"
             )
 
         # 3. Get metrics and run analysis using strategies
@@ -81,6 +82,9 @@ class AnalyzerService:
             app_id, attempt_id
         )
         executor_details = self.datasource.get_executor_details(app_id, attempt_id)
+
+        if not peak_executor_metrics:
+            raise ValueError("PeakMemoryMetrics are not present for the application")
 
         mem_recommendations = self.memory_strategy.generate_recommendation(
             peak_executor_metrics
@@ -93,7 +97,7 @@ class AnalyzerService:
         recommendation = Recommendation(
             application_id=app_id,
             app_name=app_details.name,
-            time_taken_mins=round((app_details.attempts[0]["duration"] / 1000) / 60, 2),
+            time_taken_mins=round((app_details.attempts[0].duration / 1000) / 60, 2),
             metrics_collection_dt=datetime.now().date(),
             emr_id=emr_id,
             current_configuration=defined_exec_params,

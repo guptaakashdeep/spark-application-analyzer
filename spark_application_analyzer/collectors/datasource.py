@@ -1,5 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from abc import ABC
+from abc import abstractmethod
+from typing import Any
+from typing import Dict
+from typing import List
 
 
 class IDataSource(ABC):
@@ -34,4 +37,23 @@ class IDataSource(ABC):
         self, app_id: str, attempt_id: str = None
     ) -> List[Dict[str, Any]]:
         """Get detailed information and lifecycle stats for each executor."""
+        pass
+
+    @abstractmethod
+    def get_stage_metrics(
+        self, app_id: str, attempt_id: str = None
+    ) -> List[Dict[str, Any]]:
+        """Get detailed stage information for a specific application."""
+        pass
+
+    @abstractmethod
+    def get_job_metrics(
+        self, app_id: str, attempt_id: str = None
+    ) -> List[Dict[str, Any]]:
+        """Get detailed job information for a specific application."""
+        pass
+
+    @abstractmethod
+    def list_completed_applications(self) -> List[Dict[str, Any]]:
+        """Get all applications with completed status."""
         pass

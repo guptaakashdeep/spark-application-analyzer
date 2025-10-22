@@ -3,6 +3,7 @@
 This module handles data persistence and I/O operations, starting with Parquet.
 """
 from dataclasses import asdict
+from typing import Optional
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -17,12 +18,14 @@ class ParquetSink(IDataSink):
     A data sink that writes recommendation data to a Parquet dataset.
     """
 
-    def __init__(self, sink_location: str):
+    def __init__(self, sink_location: str, log_location: Optional[str] = None):
         """
         Initializes the sink with a target location.
         :param sink_location: The root path for the Parquet dataset (e.g., 's3://my-bucket/my-path/').
+        :param log_location: The root path for the Parquet logs.
         """
         self.sink_location = sink_location.rstrip("/")
+        self.log_location = log_location.rstrip("/") if log_location else ""
         self.filesystem = (
             s3fs.S3FileSystem() if self.sink_location.startswith("s3://") else None
         )
@@ -76,6 +79,8 @@ class ParquetSink(IDataSink):
                 pa.field("time_taken_mins", pa.float64()),
                 pa.field("num_jobs", pa.int32()),
                 pa.field("num_stages", pa.int32()),
+                pa.field("num_failed_jobs", pa.int32()),
+                pa.field("num_failed_stages", pa.int32()),
                 pa.field("metrics_collection_dt", pa.date32()),
                 pa.field("emr_id", pa.string()),
                 pa.field("recommended_heap_bytes", pa.float64()),
@@ -118,7 +123,7 @@ class ParquetSink(IDataSink):
             key: [value] for key, value in asdict(data.bottlenecks).items()
         }
         table_data = {**recommendation_data, **bottleneck_data}
-        print("Table Data: ", table_data)
+        # print("Table Data: ", table_data)
         table = pa.Table.from_pydict(table_data, schema=pyarrow_schema)
 
         print(f"Writing recommendations to {self.sink_location}")
@@ -127,5 +132,35 @@ class ParquetSink(IDataSink):
             root_path=self.sink_location,
             filesystem=self.filesystem,
             partition_cols=["metrics_collection_dt"],
+            existing_data_behavior="overwrite_or_ignore",
+        )
+
+    def log(self, log_data: dict) -> None:
+        """Log the application analysis status"""
+        if not self.log_location:
+            return
+
+        log_schema = pa.schema(
+            [
+                pa.field("application_id", pa.string()),
+                pa.field("app_name", pa.string()),
+                pa.field("completion_timestamp", pa.string()),
+                pa.field("first_seen_timestamp", pa.timestamp("ms")),
+                pa.field("processed_timestamp", pa.timestamp("ms")),
+                pa.field("processing_status", pa.string()),
+                pa.field("failure_reason", pa.string(), nullable=True),
+                pa.field("processed_date", pa.date32()),
+            ]
+        )
+
+        log_table_data = {key: [value] for key, value in log_data.items()}
+
+        table = pa.Table.from_pydict(log_table_data, schema=log_schema)
+        print(f"Writing processing logs to {self.log_location}")
+        pq.write_to_dataset(
+            table,
+            root_path=self.log_location,
+            filesystem=self.filesystem,
+            partition_cols=["processed_date"],
             existing_data_behavior="overwrite_or_ignore",
         )

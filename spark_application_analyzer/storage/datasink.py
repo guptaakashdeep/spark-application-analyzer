@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from typing import Any
 
 
@@ -10,4 +11,9 @@ class IDataSink(ABC):
     @abstractmethod
     def save(self, data: Any) -> None:
         """Save the given data to the sink."""
+        pass
+
+    @abstractmethod
+    def log(self, log_data: Any) -> None:
+        """Log the application process status"""
         pass

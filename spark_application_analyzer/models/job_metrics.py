@@ -30,3 +30,4 @@ class JobMetrics:
     num_failed_stages: int
     killed_tasks_summary: Dict[str, Any]
     completion_time: Optional[str] = field(default=None)
+    description: Optional[str] = field(default=None)
