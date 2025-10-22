@@ -31,7 +31,7 @@ class MaxMemoryStrategy(BaseMemoryStrategy):
             return {}
 
         max_heap_memory = max(jvm_heap_peaks)
-        max_total_memory = max(jvm_rss_peaks)
+        max_total_memory = max(max(jvm_rss_peaks), 1)
         max_overhead_memory = max_total_memory - max_heap_memory
         # TODO: Check the number of runs for the applications - has to have some unique_id for a job!!
         num_runs = 0
