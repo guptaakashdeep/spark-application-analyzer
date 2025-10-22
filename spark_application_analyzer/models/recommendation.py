@@ -17,7 +17,7 @@ class Recommendation:
     # Input parameters & App Details
     application_id: str
     app_name: str
-    time_taken: float
+    time_taken_mins: float
     metrics_collection_dt: date
     emr_id: Optional[str]
 
@@ -74,6 +74,8 @@ class SlowestJobs:
 class Bottlenecks:
     num_jobs: int
     num_stages: int
+    num_failed_jobs: int
+    num_failed_stages: int
     slowest_jobs: Optional[List[SlowestJobs]] = field(default_factory=list)
     slowest_stages: Optional[List[SlowestStages]] = field(default_factory=list)
     high_spill_stages: Optional[List[HighSpillStages]] = field(default_factory=list)

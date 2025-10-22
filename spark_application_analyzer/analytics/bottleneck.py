@@ -126,6 +126,17 @@ class PerformanceBottleneckStrategy(BasePerformanceStrategy):
         """
         bottlenecks = {}
 
+        # Failed stages
+        failed_stages = len(
+            [metric for metric in stage_metrics if metric.status == "FAILED"]
+        )
+        bottlenecks["num_failed_stages"] = failed_stages
+        # Failed Jobs
+        failed_jobs = len(
+            [metric for metric in job_metrics if metric.status == "FAILED"]
+        )
+        bottlenecks["num_failed_jobs"] = failed_jobs
+
         # Identify high memory spill stages
         high_spill_stages = self._get_high_spill_stages(stage_metrics)
         if high_spill_stages:
