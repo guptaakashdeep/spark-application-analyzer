@@ -5,8 +5,10 @@ from datetime import datetime
 
 import pyarrow.dataset as ds
 import urllib3
+from requests.exceptions import ReadTimeout
 from spark_application_analyzer.api import analyze_application
 from spark_application_analyzer.collectors.spark_history import SparkHistoryServerClient
+from spark_application_analyzer.utils.aws import get_emrid
 from spark_application_analyzer.utils.aws import get_history_server_url
 from spark_application_analyzer.utils.aws import read_logs
 from spark_application_analyzer.utils.cli_colors import Colors
@@ -34,10 +36,10 @@ def _analyze_application(
         # The CLI is now only responsible for presentation
         print("\n--- Recommendation Summary ---")
         print(
-            f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendation.recommended_heap_gb}g"
+            f"{Colors.GREEN}{Colors.BOLD}Recommended Executor Memory: {recommendation.recommended_heap_memory_gb}g"
         )
         print(
-            f"Recommneded Executor Overhead Memory: {recommendation.recommended_overhead_gb}g"
+            f"Recommneded Executor Overhead Memory: {recommendation.recommended_overhead_memory_gb}g"
         )
         print(
             f"{Colors.YELLOW}{Colors.BOLD}Current Executor Memory: {recommendation.current_configuration['spark.executor.memory']}"
@@ -83,6 +85,11 @@ def main():
         type=str,
         help="Path to save metrics execution logs (e.g., s3://bucket/path)",
     )
+    parser.add_argument(
+        "--on-emr",
+        action="store_true",
+        help="Flag to identify if cli is running on EMR master node to identify emr-id by itself",
+    )
 
     args = parser.parse_args()
     apps_list = []
@@ -95,9 +102,16 @@ def main():
         )
         sys.exit(1)
 
+    if args.on_emr and not args.emr_id:
+        emr_id = get_emrid()
+        print(f"Fetched emr-id: {emr_id}")
+    else:
+        emr_id = args.emr_id
+        print(f"Provided emr-d: {emr_id}")
+
     if args.all_apps:
-        if args.emr_id:
-            base_url = get_history_server_url(args.emr_id)
+        if emr_id:
+            base_url = get_history_server_url(emr_id)
             print(f"Discovered Spark History Server URL via EMR: {base_url}")
         elif args.base_url:
             base_url = args.base_url
@@ -105,7 +119,7 @@ def main():
             base_url = "http://localhost:18080"
         source = SparkHistoryServerClient(base_url)
         apps = source.list_completed_applications()
-        # TODO: Add a logic for removing already processed application from logging table. if log_path present.
+        # Add a logic for removing already processed application from logging table. if log_path present.
         if apps:
             app_ids = [app["id"] for app in apps]
             logs_dataset = read_logs(args.log_path)
@@ -133,15 +147,15 @@ def main():
     else:
         apps_list.append(args.app_id)
 
-    try:
-        # Delegate all core logic to the programmatic API
-        for app_id in apps_list:
-            print(
-                f"{Colors.CYAN}{Colors.BOLD}==== Analyzing Application: {app_id} ==== {Colors.END}"
-            )
+    # Delegate all core logic to the programmatic API
+    for app_id in apps_list:
+        print(
+            f"{Colors.CYAN}{Colors.BOLD}==== Analyzing Application: {app_id} ==== {Colors.END}"
+        )
+        try:
             _analyze_application(
                 app_id=app_id,
-                emr_id=args.emr_id,
+                emr_id=emr_id,
                 base_url=base_url,
                 sink_path=args.sink_path,
                 log_path=args.log_path,
@@ -149,8 +163,12 @@ def main():
             print(
                 f"{Colors.CYAN}{Colors.BOLD}==== Analysis Completed for Application: {app_id} ==== {Colors.END}"
             )
-    except Exception as e:
-        raise e
+        except ReadTimeout:
+            print(
+                f"{Colors.RED}{Colors.BOLD}==== Read timed out for Application: {app_id} ==== {Colors.END}"
+            )
+        except Exception as e:
+            raise e
 
 
 if __name__ == "__main__":

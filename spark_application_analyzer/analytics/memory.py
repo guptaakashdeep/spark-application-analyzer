@@ -42,9 +42,15 @@ class MaxMemoryStrategy(BaseMemoryStrategy):
             max_overhead_memory / max_total_memory
         )
         return {
+            "max_heap_memory": max_heap_memory,
+            "max_heap_memory_gb": round(max_heap_memory / (1024**3)),
+            "max_total_memory": max_total_memory,
+            "max_total_memory_gb": round(max_total_memory / (1024**3)),
+            "max_overhead_memory": max_overhead_memory,
+            "max_overhead_memory_gb": round(max_overhead_memory / (1024**3)),
             "recommended_heap_bytes": suggested_heap,
             "recommended_overhead_bytes": suggested_overhead,
-            "recommended_heap_gb": round(suggested_heap / (1024**3)),
-            "recommended_overhead_gb": round(suggested_overhead / (1024**3)),
+            "recommended_heap_memory_gb": round(suggested_heap / (1024**3)),
+            "recommended_overhead_memory_gb": round(suggested_overhead / (1024**3)),
             "buffer": buffer,
         }

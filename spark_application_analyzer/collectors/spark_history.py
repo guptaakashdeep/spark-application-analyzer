@@ -30,12 +30,21 @@ class SparkHistoryServerClient(IDataSource):
     def _get(self, path: str, params={}) -> dict:
         """Get details from Spark history server from provided url"""
         url = f"{self.base_url}/api/v1{path}"
-        if params:
-            resp = requests.get(url, params=params, verify=False, timeout=self.timeout)
-        else:
-            resp = requests.get(url, verify=False, timeout=self.timeout)
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            if params:
+                resp = requests.get(
+                    url, params=params, verify=False, timeout=self.timeout
+                )
+            else:
+                resp = requests.get(url, verify=False, timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch data from {url}: {e}")
+            raise e
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            raise e
 
     def list_applications(self) -> List[dict]:
         """Get all the applications"""

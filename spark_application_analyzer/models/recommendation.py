@@ -22,10 +22,16 @@ class Recommendation:
     emr_id: Optional[str]
 
     # Memory recommendations from recommend_executor_mem
+    max_heap_memory: int
+    max_heap_memory_gb: int
+    max_total_memory: int
+    max_total_memory_gb: int
+    max_overhead_memory: int
+    max_overhead_memory_gb: int
     recommended_heap_bytes: float
     recommended_overhead_bytes: float
-    recommended_heap_gb: int
-    recommended_overhead_gb: int
+    recommended_heap_memory_gb: int
+    recommended_overhead_memory_gb: int
     buffer: float
 
     # Executor number recommendations from recommend_num_executors
@@ -71,6 +77,12 @@ class SlowestJobs:
 
 
 @dataclass
+class StageRetries:
+    stage_id: int
+    num_retries: int
+
+
+@dataclass
 class Bottlenecks:
     num_jobs: int
     num_stages: int
@@ -80,6 +92,7 @@ class Bottlenecks:
     slowest_stages: Optional[List[SlowestStages]] = field(default_factory=list)
     high_spill_stages: Optional[List[HighSpillStages]] = field(default_factory=list)
     gc_pressure_ratio: Optional[float] = field(default=0.0)
+    stage_retries: Optional[StageRetries] = field(default_factory=dict)
 
 
 @dataclass

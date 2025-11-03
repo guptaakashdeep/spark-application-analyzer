@@ -1,4 +1,5 @@
 import heapq
+from collections import Counter
 from typing import Any
 from typing import Dict
 from typing import List
@@ -112,6 +113,16 @@ class PerformanceBottleneckStrategy(BasePerformanceStrategy):
         )
         return round(calculate_gc_pressure(max_gc_pressure_executor), 2)
 
+    def _get_stage_retries(self, stage_metrics: List[StageMetrics]) -> Dict[int, int]:
+        """Get stages that have been retried and their retry counts"""
+        stage_counts = Counter(metric.stage_id for metric in stage_metrics)
+        stage_retry_counts = {
+            int(stage_id): count - 1
+            for stage_id, count in stage_counts.items()
+            if count > 1
+        }
+        return stage_retry_counts
+
     def identify_bottlenecks(
         self,
         stage_metrics: List[StageMetrics],
@@ -156,5 +167,10 @@ class PerformanceBottleneckStrategy(BasePerformanceStrategy):
         gc_pressure_ratio = self._get_gc_pressure(executor_metrics)
         if gc_pressure_ratio > 10:
             bottlenecks["gc_pressure_ratio"] = gc_pressure_ratio
+
+        # Get if there are any stage retries
+        stage_retries = self._get_stage_retries(stage_metrics)
+        if stage_retries:
+            bottlenecks["stage_retries"] = stage_retries
 
         return bottlenecks

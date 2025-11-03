@@ -1,3 +1,6 @@
+import json
+import shlex
+import subprocess as sp
 from typing import Optional
 
 import boto3
@@ -35,3 +38,23 @@ def read_logs(log_location) -> Optional[ds.dataset]:
     except Exception as e:
         print(f"Error reading logs from {log_location}: {e}")
         raise e
+
+
+def get_emrid():
+    """Gets EMR ID if app is running on EMR master node"""
+    try:
+        emr_result = sp.run(
+            shlex.split("cat /mnt/var/lib/info/job-flow.json"),
+            shell=False,
+            capture_output=True,
+            text=True,
+        )
+        if emr_result.returncode != 0:
+            raise Exception("Error occured while getting emr_id.")
+        else:
+            result = emr_result.stdout.strip()
+            json_emr_id = json.loads(result)
+            emr_id = json_emr_id.get("jobFlowId")
+            return emr_id
+    except Exception as e:
+        raise ValueError("Issues fetching EMR ID on master", str(e))
