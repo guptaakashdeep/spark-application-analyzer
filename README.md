@@ -2,7 +2,7 @@
 
 A Python package to analyze Spark Application (Spark 3.5 running on AWS EMR) metrics via REST API to suggest the right sizing for executors.
 
-> This project is WIP and is NOT ready to use yet.
+> The major implementation of the project is complete.
 
 ## Overview
 
@@ -18,6 +18,7 @@ This project implements a right-sizing framework for Spark executors, inspired b
 - **Multiple Output Formats**: JSON output, Parquet storage, and human-readable logs
 - **Rich Terminal UI**: Modern, visually appealing CLI output with tables and panels using the `rich` library
 - **CLI-First Design**: Easy-to-use command-line interface for automation
+- **MCP Server**: Built-in Model Context Protocol server for AI assistant integration
 
 ## Installation
 
@@ -65,6 +66,24 @@ spark-analyzer --emr-id j-1234567890 --app-id app-123 --sink-path s3://bucket/fo
 # Analyze all apps on an EMR cluster
 spark-analyzer --emr-id j-1234567890 --all-apps
 ```
+
+### MCP Server
+
+The package includes a Model Context Protocol (MCP) server that allows AI assistants (like Claude or IDE agents) to directly interact with the analyzer.
+
+```bash
+# Start the MCP server
+spark-analyzer-mcp
+```
+
+**Available Tools:**
+- `analyze_spark_app`: Generate recommendations and identify bottlenecks
+- `list_spark_apps`: List applications from history server
+- `get_spark_app_details`: Get full application details
+- `get_spark_environment`: Get environment properties
+- `get_spark_executors`: Get executor metrics
+- `get_spark_jobs`: Get job metrics
+- `get_spark_stages`: Get stage metrics
 
 ## Configuration
 
@@ -155,30 +174,47 @@ The CLI provides a rich visual output including:
 ### JSON Recommendations
 ```json
 {
+  "recommendation": {
     "application_id": "application_1756176332935_0487",
     "app_name": "example.py",
-    "metrics_collection_dt": datetime.date(2025,9,20),
-    "emr_id": "",
-    "suggested_heap_in_bytes": 17741989504.219635,
-    "suggested_overhead_in_bytes": 2452978048.0303664,
-    "suggested_heap_in_gb": 17,
-    "suggested_overhead_in_gb": 2,
+    "time_taken_mins": 45.5,
+    "metrics_collection_dt": "2025-09-20",
+    "emr_id": "j-12345",
+    "max_heap_memory": 15032385536,
+    "max_heap_memory_gb": 14,
+    "max_total_memory": 18253611008,
+    "max_total_memory_gb": 17,
+    "max_overhead_memory": 3221225472,
+    "max_overhead_memory_gb": 3,
+    "recommended_heap_bytes": 17741989504.22,
+    "recommended_overhead_bytes": 2452978048.03,
+    "recommended_heap_memory_gb": 17,
+    "recommended_overhead_memory_gb": 2,
     "buffer": 0.25,
+    "avg_idle_pct": 37.67,
+    "target_idle_pct": 15.0,
     "current_p95_maxExecutors": 17,
-    "avg_idle_pct": np.float64(37.673527550450174),
-    "p95_idle_pct": np.float64(90.31109764088725),
     "recommended_maxExecutors": 10,
-    "target_idle_pct": 15,
-    "additional_details": {
-        "spark.dynamicAllocation.enabled": "true",
-        "spark.dynamicAllocation.maxExecutors": "16",
-        "spark.dynamicAllocation.minExecutors": "4",
-        "spark.executor.cores": "5",
-        "spark.executor.instances": "8",
-        "spark.executor.memory": "17g",
-        "spark.executor.memoryOverheadFactor": "0.1",
-        "spark.executor.processTreeMetrics.enabled": "true"
+    "current_configuration": {
+      "spark.dynamicAllocation.enabled": "true",
+      "spark.dynamicAllocation.maxExecutors": "16",
+      "spark.dynamicAllocation.minExecutors": "4",
+      "spark.executor.cores": "5",
+      "spark.executor.instances": "8",
+      "spark.executor.memory": "17g",
+      "spark.executor.memoryOverheadFactor": "0.1",
+      "spark.executor.processTreeMetrics.enabled": "true"
     }
+  },
+  "bottlenecks": {
+    "num_jobs": 5,
+    "num_stages": 12,
+    "num_failed_jobs": 0,
+    "num_failed_stages": 1,
+    "gc_pressure_ratio": 0.05,
+    "slowest_jobs": [],
+    "slowest_stages": []
+  }
 }
 ```
 
@@ -226,22 +262,26 @@ For programmatic use, the library provides a high-level `analyze_application` fu
 
 ```python
 from spark_application_analyzer import analyze_application
-from spark_application_analyzer.models.recommendation import Recommendation
+from spark_application_analyzer.models.recommendation import AnalysisResults
 
 # --- Example 1: Using an EMR Cluster ID ---
 try:
     print("--- Analyzing application using EMR ID ---")
     # The function will automatically discover the Spark History Server URL
-    recommendation: Recommendation = analyze_application(
+    results: AnalysisResults = analyze_application(
         application_id="application_1678886400000_0001", # Replace with your app ID
         emr_id="j-12345ABCDEF" # Replace with your EMR ID
     )
+    
+    recommendation = results.recommendation
+    bottlenecks = results.bottlenecks
 
     print("\n--- Analysis Complete ---")
     print(f"Application: {recommendation.app_name}")
     print(f"Recommended Executor Heap: {recommendation.recommended_heap_memory_gb} GB")
     print(f"Recommended Executor Overhead: {recommendation.recommended_overhead_memory_gb} GB")
     print(f"Recommended Max Executors: {recommendation.recommended_maxExecutors}")
+    print(f"Bottlenecks Detected: {bottlenecks.num_failed_jobs} failed jobs")
 
 except Exception as e:
     print(f"An error occurred: {e}")
@@ -250,24 +290,19 @@ except Exception as e:
 # --- Example 2: Using a direct URL ---
 try:
     print("\n--- Analyzing application using direct URL ---")
-    recommendation: Recommendation = analyze_application(
+    results: AnalysisResults = analyze_application(
         application_id="application_1678886400000_0002", # Replace with your app ID
         base_url="http://localhost:18080"
     )
 
     print("\n--- Analysis Complete ---")
-    # The 'recommendation' object contains all the details
-    print(recommendation)
+    # The 'results' object contains all the details
+    print(results)
 
 except Exception as e:
     print(f"An error occurred: {e}")
 ```
 
-### Using as a CLI tool
-
-```bash
-spark-analyzer --app-id application_1756176332935_0487
-```
 
 ## Contributing
 
@@ -296,3 +331,5 @@ MIT License - see LICENSE file for details.
 - [ ] Shuffle partition optimization recommendations
 - [ ] Real-time monitoring and alerting
 - [ ] Integration with Spark job submission
+- [x] Integration with MCP server
+
