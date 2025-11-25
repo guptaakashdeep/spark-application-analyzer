@@ -1,4 +1,5 @@
 """Spark History Server client for collecting application and executor metrics."""
+
 import logging
 from typing import Any
 from typing import Dict

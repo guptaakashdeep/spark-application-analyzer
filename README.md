@@ -16,6 +16,7 @@ This project implements a right-sizing framework for Spark executors, inspired b
 - **Right-Sizing Recommendations**: Implements LinkedIn-inspired formulas with dynamic buffer sizing
 - **T-Shirt Sizing**: Maps recommendations to configurable cluster profiles (XSMALL to XLARGE)
 - **Multiple Output Formats**: JSON output, Parquet storage, and human-readable logs
+- **Rich Terminal UI**: Modern, visually appealing CLI output with tables and panels using the `rich` library
 - **CLI-First Design**: Easy-to-use command-line interface for automation
 
 ## Installation
@@ -45,21 +46,24 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```bash
-# List available Spark applications
-spark-analyzer list-apps --base-url http://localhost:18080
+# Analyze a specific application
+spark-analyzer --app-id app-123 --base-url http://localhost:18080
 
-# Get executor metrics for a specific application
-spark-analyzer --app-id app-123 --action get-recommendation --base-url http://localhost:18080
+# Analyze all completed applications
+spark-analyzer --all-apps --base-url http://localhost:18080
 
-# Analyze applications and generate recommendations
-spark-analyzer --base-url http://localhost:18080 --sink_path ./results
+# Save results to a specific path
+spark-analyzer --app-id app-123 --base-url http://localhost:18080 --sink-path ./results
 ```
 
 ### EMR Integration
 
 ```bash
 # Automatically discover history server from EMR cluster
-spark-analyzer --emr-id j-1234567890 --app-id app-123 --action get-recommendation --sink_path s3://bucket/folder/
+spark-analyzer --emr-id j-1234567890 --app-id app-123 --sink-path s3://bucket/folder/
+
+# Analyze all apps on an EMR cluster
+spark-analyzer --emr-id j-1234567890 --all-apps
 ```
 
 ## Configuration
@@ -87,12 +91,6 @@ tshirt_profiles:
     max_cores: 32
 ```
 
-Use the configuration:
-
-```bash
-spark-analyzer analyze --history-server-url http://localhost:18080 --config-file config.yaml
-```
-
 ## Architecture
 
 ```
@@ -111,7 +109,7 @@ spark_application_analyzer/
 
 ```mermaid
 graph TD
-    A[User via CLI] --> B(argparse_cli.py);
+    A[User via CLI] --> B(cli.py);
     B --> C{Input Source};
     C -- EMR ID --> D[AWS EMR];
     D -- History Server URL --> E[Spark History Client];
@@ -147,6 +145,12 @@ SUGGESTED_OVERHEAD = p90(OVERHEAD_MEMORY) + BUFFER * (p90_OVERHEAD / p90_TOTAL)
 ```
 
 ## Output
+
+### CLI Output
+The CLI provides a rich visual output including:
+- **Recommendation Summary**: A panel showing recommended vs current memory configurations.
+- **Bottleneck Information**: Detailed tables for slowest jobs, slowest stages, and high spill stages.
+- **Overview Metrics**: Summary of job/stage failures and GC pressure.
 
 ### JSON Recommendations
 ```json
@@ -235,8 +239,8 @@ try:
 
     print("\n--- Analysis Complete ---")
     print(f"Application: {recommendation.app_name}")
-    print(f"Recommended Executor Heap: {recommendation.suggested_heap_in_gb} GB")
-    print(f"Recommended Executor Overhead: {recommendation.suggested_overhead_in_gb} GB")
+    print(f"Recommended Executor Heap: {recommendation.recommended_heap_memory_gb} GB")
+    print(f"Recommended Executor Overhead: {recommendation.recommended_overhead_memory_gb} GB")
     print(f"Recommended Max Executors: {recommendation.recommended_maxExecutors}")
 
 except Exception as e:
@@ -262,7 +266,7 @@ except Exception as e:
 ### Using as a CLI tool
 
 ```bash
-python3 spark_application_analyzer/argparse_cli.py --action get-recommendation --app-id application_1756176332935_0487
+spark-analyzer --app-id application_1756176332935_0487
 ```
 
 ## Contributing
@@ -288,7 +292,7 @@ MIT License - see LICENSE file for details.
 
 - [x] Executor Memory Recommendation
 - [x] Num Executor Recommendation
-- [ ] Stage metrics analysis for bottleneck identification
+- [x] Stage metrics analysis for bottleneck identification
 - [ ] Shuffle partition optimization recommendations
 - [ ] Real-time monitoring and alerting
 - [ ] Integration with Spark job submission

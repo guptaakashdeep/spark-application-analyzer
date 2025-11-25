@@ -31,9 +31,7 @@ dependencies = [
     "numpy",
     "boto3>=1.26.0",
     "pyyaml>=6.0",
-    # "click>=8.0.0",
-    "rich>=13.0.0",
-    "structlog>=23.0.0",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +46,7 @@ dev = [
 # TODO: Update this to the correct CLI entry point once finalized.
 [project.scripts]
 spark-analyzer = "spark_application_analyzer.cli:main"
+spark-analyzer-mcp = "spark_application_analyzer.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/guptaakashdeep/spark-application-analyzer"

@@ -2,6 +2,7 @@
 
 This module handles data persistence and I/O operations, starting with Parquet.
 """
+
 from dataclasses import asdict
 from typing import Optional
 
